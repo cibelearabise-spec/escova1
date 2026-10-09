@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="pt" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUREA — Luxury Toothbrush Experience</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gold: {
+                            100: '#FDF8EC',
+                            200: '#F9EFCF',
+                            300: '#F2DC9D',
+                            400: '#E6C56B',
+                            500: '#D4AF37',
+                            600: '#AA8C2C',
+                            700: '#806921',
+                        },
+                        champagne: {
+                            DEFAULT: '#F7F4EF',
+                            dark: '#121214',
+                            card: 'rgba(20, 20, 24, 0.75)'
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['Cinzel', 'Playfair Display', 'serif'],
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Tone.js for ambient audio -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0c10;
+            color: #f7f4ef;
+            overflow-x: hidden;
+            margin: 0;
+        }
+        h1, h2, h3, h4, .font-luxury {
+            font-family: 'Cinzel', serif;
+            letter-spacing: 0.15em;
+        }
+        .glass-card {
+            background: rgba(18, 18, 22, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+        .glass-card:hover {
+            border-color: rgba(212, 175, 55, 0.5);
+            box-shadow: 0 25px 50px rgba(212, 175, 55, 0.15);
+        }
+        .gold-gradient-text {
+            background: linear-gradient(135deg, #FFF 0%, #F2DC9D 50%, #D4AF37 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .gold-border {
+            border-color: #D4AF37;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0c10;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #D4AF37;
+            border-radius: 3px;
+        }
+        /* Background Landscape Layer */
+        #bg-canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -2;
+            pointer-events: none;
+        }
+        .bg-image-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('data:image/jpeg;base64,...'); /* Fallback handled via JS */
+            background-size: cover;
+            background-position: center;
+            z-index: -3;
+        }
+        .vignette-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle, rgba(11,12,16,0.3) 0%, rgba(11,12,16,0.85) 100%);
+            z-index: -1;
+            pointer-events: none;
+        }
+        /* Page transition overlay */
+        #transition-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 99;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .page-content {
+            display: none;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+        .page-content.active {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-15px) rotate(1deg); }
+        }
+        .floating-element {
+            animation: floatSlow 6s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-champagne relative selection:bg-gold-500 selection:text-black">
+
+    <!-- Background Image Layer (User Provided Landscape) -->
+    <div id="bg-landscape" class="bg-image-layer" style="background-image: url('image_7746e6.jpg');"></div>
+    <div class="vignette-overlay"></div>
+    <div id="bg-canvas-container"></div>
+    
+    <!-- Transition Canvas for 3D Geometric Page Morphing -->
+    <canvas id="transition-canvas"></canvas>
+
+    <!-- Navigation Bar -->
+    <header class="fixed top-0 left-0 w-full z-50 px-6 lg:px-16 py-6 transition-all duration-500 bg-black/30 backdrop-blur-md border-b border-gold-500/10">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <!-- Brand Logo -->
+            <a href="#" onclick="switchPage('pureza'); return false;" class="group flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-full border border-gold-400 flex items-center justify-center bg-gold-500/10 group-hover:bg-gold-500/20 transition-all">
+                    <i class="fa-solid fa-crown text-gold-400 text-sm"></i>
+                </div>
+                <span class="font-serif text-2xl tracking-[0.25em] font-bold gold-gradient-text">AUREA</span>
+            </a>
+
+            <!-- Desktop Menu Links -->
+            <nav class="hidden md:flex items-center space-x-10">
+                <button onclick="switchPage('pureza')" id="nav-pureza" class="nav-link text-sm uppercase tracking-widest text-gold-300 font-medium hover:text-gold-400 transition-colors py-1 border-b-2 border-gold-400">Pureza</button>
+                <button onclick="switchPage('experiencia')" id="nav-experiencia" class="nav-link text-sm uppercase tracking-widest text-champagne/70 font-medium hover:text-gold-400 transition-colors py-1 border-b-2 border-transparent">A Experiência</button>
+                <button onclick="switchPage('tecnologia')" id="nav-tecnologia" class="nav-link text-sm uppercase tracking-widest text-champagne/70 font-medium hover:text-gold-400 transition-colors py-1 border-b-2 border-transparent">Tecnologia</button>
+                <button onclick="switchPage('colecao')" id="nav-colecao" class="nav-link text-sm uppercase tracking-widest text-champagne/70 font-medium hover:text-gold-400 transition-colors py-1 border-b-2 border-transparent">Coleção</button>
+            </nav>
+
+            <!-- Audio Toggle & Mobile Menu Trigger -->
+            <div class="flex items-center space-x-4">
+                <button id="audio-toggle" onclick="toggleAudio()" class="flex items-center space-x-2 px-4 py-2 rounded-full glass-card text-xs tracking-widest uppercase hover:border-gold-400 transition-all group">
+                    <i id="audio-icon" class="fa-solid fa-volume-xmark text-gold-400 group-hover:scale-110 transition-transform"></i>
+                    <span id="audio-text" class="hidden sm:inline text-gold-300">Ambiente</span>
+                </button>
+                <button onclick="toggleMobileMenu()" class="md:hidden text-gold-300 text-xl p-2 focus:outline-none">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation Drawer -->
+        <div id="mobile-menu" class="hidden md:hidden absolute top-full left-0 w-full glass-card border-t border-gold-500/20 py-6 px-8 flex flex-col space-y-4">
+            <button onclick="switchPage('pureza'); toggleMobileMenu();" class="text-left text-sm uppercase tracking-widest text-gold-300 py-2">Pureza</button>
+            <button onclick="switchPage('experiencia'); toggleMobileMenu();" class="text-left text-sm uppercase tracking-widest text-champagne/80 py-2">A Experiência</button>
+            <button onclick="switchPage('tecnologia'); toggleMobileMenu();" class="text-left text-sm uppercase tracking-widest text-champagne/80 py-2">Tecnologia</button>
+            <button onclick="switchPage('colecao'); toggleMobileMenu();" class="text-left text-sm uppercase tracking-widest text-champagne/80 py-2">Coleção</button>
+        </div>
+    </header>
+
+    <!-- Persistent 3D Three.js Toothbrush Viewer Container (Floating on right/center) -->
+    <div id="toothbrush-3d-container" class="fixed inset-0 pointer-events-none z-0 flex items-center justify-end pr-4 lg:pr-24 overflow-hidden">
+        <div id="canvas-3d-target" class="w-full lg:w-[55vw] h-[75vh] pointer-events-auto cursor-grab active:cursor-grabbing"></div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="relative z-10 pt-32 pb-24 px-6 lg:px-16 max-w-7xl mx-auto min-h-screen flex items-center">
+
+        <!-- PAGE 1: PUREZA -->
+        <div id="page-pureza" class="page-content active w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            <div class="lg:col-span-7 space-y-8">
+                <div class="inline-flex items-center space-x-3 px-4 py-1.5 rounded-full glass-card border-gold-500/30">
+                    <span class="w-2 h-2 rounded-full bg-gold-400 animate-pulse"></span>
+                    <span class="text-xs uppercase tracking-[0.3em] text-gold-300 font-semibold">Edição Limitada 2026</span>
+                </div>
+                <h1 class="font-serif text-4xl sm:text-6xl lg:text-7xl font-bold leading-tight gold-gradient-text">
+                    PUREZA,<br>ELEVADA.
+                </h1>
+                <p class="text-base sm:text-lg text-champagne/80 max-w-xl font-light leading-relaxed">
+                    Uma obra-prima da engenharia suíça e do design escandinavo. AUREA transcende o cuidado pessoal, fundindo titânio aeroespacial e cerdas infundidas com nano-carvão em uma sinfonia de elegância glacial.
+                </p>
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-4 sm:space-y-0 sm:space-x-6 pt-4">
+                    <button onclick="switchPage('experiencia')" class="px-8 py-4 rounded-full bg-gradient-to-r from-gold-600 via-gold-500 to-gold-400 text-black font-semibold uppercase tracking-widest text-xs shadow-2xl hover:scale-105 transition-all duration-300 flex items-center justify-center space-x-3">
+                        <span>Descobrir Mais</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                    <button onclick="switchPage('colecao')" class="px-8 py-4 rounded-full glass-card border-gold-500/40 text-gold-300 font-semibold uppercase tracking-widest text-xs hover:bg-gold-500/10 transition-all duration-300 flex items-center justify-center space-x-3">
+                        <span>Explorar Coleção</span>
+                    </button>
+                </div>
+            </div>
+            <div class="lg:col-span-5"></div> <!-- Spacer for 3D object -->
+        </div>
+
+        <!-- PAGE 2: A EXPERIÊNCIA -->
+        <div id="page-experiencia" class="page-content w-full">
+            <div class="max-w-4xl space-y-12">
+                <div class="space-y-4">
+                    <span class="text-xs uppercase tracking-[0.3em] text-gold-400 font-semibold">Artesanato & Tato</span>
+                    <h2 class="font-serif text-3xl sm:text-5xl font-bold gold-gradient-text">AUREA EXPERIENCE</h2>
+                    <p class="text-champagne/80 font-light text-base sm:text-lg leading-relaxed">
+                        Cada escovação torna-se um ritual meditativo. Desenvolvida com ergonometria perfeita e acabamento escovado à mão, AUREA responde ao seu toque com vibrações inteligentes que se adaptam à sensibilidade gengival.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="glass-card p-8 rounded-2xl space-y-4 transform hover:-translate-y-2 transition-all duration-500">
+                        <div class="w-12 h-12 rounded-xl bg-gold-500/10 border border-gold-400/30 flex items-center justify-center text-gold-400 text-xl">
+                            <i class="fa-solid fa-feather"></i>
+                        </div>
+                        <h3 class="font-serif text-lg font-bold text-gold-200">Ergonomia Escultural</h3>
+                        <p class="text-sm text-champagne/70 font-light">Equilíbrio perfeito de peso e centro de gravidade calculado para conforto supremo na mão.</p>
+                    </div>
+
+                    <div class="glass-card p-8 rounded-2xl space-y-4 transform hover:-translate-y-2 transition-all duration-500">
+                        <div class="w-12 h-12 rounded-xl bg-gold-500/10 border border-gold-400/30 flex items-center justify-center text-gold-400 text-xl">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        </div>
+                        <h3 class="font-serif text-lg font-bold text-gold-200">Tato Sensorial</h3>
+                        <p class="text-sm text-champagne/70 font-light">Revestimento em cerâmica acetinada e detalhes em ouro de 24 quilates polidos à mão.</p>
+                    </div>
+
+                    <div class="glass-card p-8 rounded-2xl space-y-4 transform hover:-translate-y-2 transition-all duration-500">
+                        <div class="w-12 h-12 rounded-xl bg-gold-500/10 border border-gold-400/30 flex items-center justify-center text-gold-400 text-xl">
+                            <i class="fa-solid fa-heart-pulse"></i>
+                        </div>
+                        <h3 class="font-serif text-lg font-bold text-gold-200">Ritual Consciente</h3>
+                        <p class="text-sm text-champagne/70 font-light">Ciclos inteligentes de 2 minutos com feedback háptico sutil em intervalos de 30 segundos.</p>
+                    </div>
+                </div>
+
+                <div class="pt-4">
+                    <button onclick="switchPage('tecnologia')" class="px-8 py-4 rounded-full bg-gradient-to-r from-gold-600 via-gold-500 to-gold-400 text-black font-semibold uppercase tracking-widest text-xs shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-3">
+                        <span>Ver Tecnologia</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 3: TECNOLOGIA -->
+        <div id="page-tecnologia" class="page-content w-full">
+            <div class="max-w-4xl space-y-12">
+                <div class="space-y-4">
+                    <span class="text-xs uppercase tracking-[0.3em] text-gold-400 font-semibold">Inovação Científica</span>
+                    <h2 class="font-serif text-3xl sm:text-5xl font-bold gold-gradient-text">TECNOLOGIA SILENCIOSA</h2>
+                    <p class="text-champagne/80 font-light text-base sm:text-lg leading-relaxed">
+                        Combinando dinâmica de fluidos avançada e motores magnéticos de levitação sem atrito, AUREA entrega uma limpeza sônica impecável sem ruído mecânico.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="glass-card p-8 rounded-2xl space-y-4 border-l-4 border-l-gold-400">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-serif text-xl font-bold text-gold-200">Micro-Vibrações Sônicas</h3>
+                            <span class="text-gold-400 font-mono text-sm">48.000 rpm</span>
+                        </div>
+                        <p class="text-sm text-champagne/70 font-light leading-relaxed">
+                            O motor magnético patenteado gera microfluxos de fluido que penetram profundamente nos espaços interdentais, removendo 99.8% da placa sem abrasão.
+                        </p>
+                    </div>
+
+                    <div class="glass-card p-8 rounded-2xl space-y-4 border-l-4 border-l-gold-400">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-serif text-xl font-bold text-gold-200">Titânio Aeroespacial</h3>
+                            <span class="text-gold-400 font-mono text-sm">Grade 5</span>
+                        </div>
+                        <p class="text-sm text-champagne/70 font-light leading-relaxed">
+                            Chassi monobloco fresado em liga de titânio de grau aeronáutico. Inquebrável, ultraleve e totalmente à prova d'água IPX8.
+                        </p>
+                    </div>
+
+                    <div class="glass-card p-8 rounded-2xl space-y-4 border-l-4 border-l-gold-400">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-serif text-xl font-bold text-gold-200">Cerdas Nano-Carvão</h3>
+                            <span class="text-gold-400 font-mono text-sm">Binchotan</span>
+                        </div>
+                        <p class="text-sm text-champagne/70 font-light leading-relaxed">
+                            Filamentos ultrafinos infundidos com carvão ativado japonês Binchotan que neutralizam toxinas, removem manchas extrínsecas e inibem proliferação bacteriana.
+                        </p>
+                    </div>
+
+                    <div class="glass-card p-8 rounded-2xl space-y-4 border-l-4 border-l-gold-400">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-serif text-xl font-bold text-gold-200">Indução Magnética</h3>
+                            <span class="text-gold-400 font-mono text-sm">30 Dias</span>
+                        </div>
+                        <p class="text-sm text-champagne/70 font-light leading-relaxed">
+                            Base de carregamento em cristal de safira com transmissão de energia sem fio por indução rápida. Uma única carga alimenta até um mês de uso contínuo.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="pt-4">
+                    <button onclick="switchPage('colecao')" class="px-8 py-4 rounded-full bg-gradient-to-r from-gold-600 via-gold-500 to-gold-400 text-black font-semibold uppercase tracking-widest text-xs shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-3">
+                        <span>Adquirir Coleção</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 4: COLEÇÃO -->
+        <div id="page-colecao" class="page-content w-full">
+            <div class="max-w-5xl space-y-12">
+                <div class="space-y-4 text-center max-w-2xl mx-auto">
+                    <span class="text-xs uppercase tracking-[0.3em] text-gold-400 font-semibold">Exclusividade Absoluta</span>
+                    <h2 class="font-serif text-3xl sm:text-5xl font-bold gold-gradient-text">A COLEÇÃO AUREA</h2>
+                    <p class="text-champagne/80 font-light text-sm sm:text-base">
+                        Selecione a edição que melhor reflete o seu padrão de excelência pessoal.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4">
+                    <!-- Edition 1 -->
+                    <div class="glass-card p-8 rounded-2xl space-y-6 flex flex-col justify-between relative group hover:border-gold-400 transition-all duration-500">
+                        <div class="absolute -top-3 right-6 bg-gold-500 text-black font-semibold text-[10px] tracking-widest uppercase px-3 py-1 rounded-full">Classic</div>
+                        <div class="space-y-4">
+                            <h3 class="font-serif text-xl font-bold text-gold-200">AUREA Titânio Gelo</h3>
+                            <p class="text-xs text-champagne/70 font-light">Corpo em titânio escovado fosco com acabamento prateado glacial e 2 cabeças intercambiáveis.</p>
+                            <div class="text-3xl font-serif font-bold text-gold-300 pt-2">R$ 1.250</div>
+                        </div>
+                        <button onclick="openCheckout('AUREA Titânio Gelo', 'R$ 1.250')" class="w-full py-3.5 rounded-xl border border-gold-400/50 text-gold-300 hover:bg-gold-500 hover:text-black font-semibold text-xs uppercase tracking-widest transition-all duration-300">
+                            Adquirir Coleção
+                        </button>
+                    </div>
+
+                    <!-- Edition 2 (Featured) -->
+                    <div class="glass-card p-8 rounded-2xl space-y-6 flex flex-col justify-between relative transform md:-translate-y-4 border-gold-400 bg-black/80 shadow-2xl shadow-gold-500/10">
+                        <div class="absolute -top-3 right-6 bg-gradient-to-r from-gold-600 to-gold-400 text-black font-bold text-[10px] tracking-widest uppercase px-3 py-1 rounded-full shadow">Mais Desejado</div>
+                        <div class="space-y-4">
+                            <h3 class="font-serif text-xl font-bold gold-gradient-text">AUREA Ouro 24K</h3>
+                            <p class="text-xs text-champagne/80 font-light">Edição numerada com detalhes banhados a ouro 24 quilates, estojo de viagem em couro legítimo e base de safira.</p>
+                            <div class="text-3xl font-serif font-bold gold-gradient-text pt-2">R$ 2.450</div>
+                        </div>
+                        <button onclick="openCheckout('AUREA Ouro 24K', 'R$ 2.450')" class="w-full py-4 rounded-xl bg-gradient-to-r from-gold-600 via-gold-500 to-gold-400 text-black font-bold text-xs uppercase tracking-widest hover:scale-105 transition-all duration-300 shadow-xl">
+                            Adquirir Coleção
+                        </button>
+                    </div>
+
+                    <!-- Edition 3 -->
+                    <div class="glass-card p-8 rounded-2xl space-y-6 flex flex-col justify-between relative group hover:border-gold-400 transition-all duration-500">
+                        <div class="absolute -top-3 right-6 bg-gold-500 text-black font-semibold text-[10px] tracking-widest uppercase px-3 py-1 rounded-full">Obsidian</div>
+                        <div class="space-y-4">
+                            <h3 class="font-serif text-xl font-bold text-gold-200">AUREA Noir Matiz</h3>
+                            <p class="text-xs text-champagne/70 font-light">Acabamento em titânio preto ônix com revestimento anti-impressão digital e 4 cabeças Binchotan.</p>
+                            <div class="text-3xl font-serif font-bold text-gold-300 pt-2">R$ 1.580</div>
+                        </div>
+                        <button onclick="openCheckout('AUREA Noir Matiz', 'R$ 1.580')" class="w-full py-3.5 rounded-xl border border-gold-400/50 text-gold-300 hover:bg-gold-500 hover:text-black font-semibold text-xs uppercase tracking-widest transition-all duration-300">
+                            Adquirir Coleção
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Checkout Modal -->
+    <div id="checkout-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden">
+        <div class="glass-card max-w-md w-full p-8 rounded-2xl border border-gold-500/40 space-y-6 relative animate-[floatSlow_0.5s_ease-out]">
+            <button onclick="closeCheckout()" class="absolute top-4 right-4 text-champagne/60 hover:text-gold-400 text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="space-y-2">
+                <span class="text-xs uppercase tracking-[0.2em] text-gold-400 font-semibold">Solicitação de Reserva</span>
+                <h3 id="modal-item-title" class="font-serif text-2xl font-bold gold-gradient-text">AUREA Ouro 24K</h3>
+                <p id="modal-item-price" class="text-lg font-serif text-champagne">R$ 2.450</p>
+            </div>
+            <form onsubmit="handleCheckoutSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs uppercase tracking-wider text-champagne/70 mb-2">Nome Completo</label>
+                    <input type="text" required class="w-full bg-black/40 border border-gold-500/30 rounded-xl px-4 py-3 text-champagne text-sm focus:outline-none focus:border-gold-400 transition-colors" placeholder="Seu nome">
+                </div>
+                <div>
+                    <label class="block text-xs uppercase tracking-wider text-champagne/70 mb-2">E-mail de Contato Exclusivo</label>
+                    <input type="email" required class="w-full bg-black/40 border border-gold-500/30 rounded-xl px-4 py-3 text-champagne text-sm focus:outline-none focus:border-gold-400 transition-colors" placeholder="seu@email.com">
+                </div>
+                <div>
+                    <label class="block text-xs uppercase tracking-wider text-champagne/70 mb-2">Endereço de Entrega</label>
+                    <input type="text" required class="w-full bg-black/40 border border-gold-500/30 rounded-xl px-4 py-3 text-champagne text-sm focus:outline-none focus:border-gold-400 transition-colors" placeholder="Cidade, Estado / CEP">
+                </div>
+                <button type="submit" class="w-full py-4 rounded-xl bg-gradient-to-r from-gold-600 via-gold-500 to-gold-400 text-black font-bold text-xs uppercase tracking-widest hover:scale-102 transition-transform shadow-xl">
+                    Confirmar Reserva Privativa
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Success Notification Toast -->
+    <div id="toast-notification" class="fixed bottom-8 right-8 z-50 glass-card px-6 py-4 rounded-2xl border border-gold-500/60 flex items-center space-x-4 transform translate-y-32 opacity-0 transition-all duration-500">
+        <div class="w-8 h-8 rounded-full bg-gold-500/20 flex items-center justify-center text-gold-400">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <div>
+            <h4 class="font-serif text-sm font-bold text-gold-200">Reserva Concluída</h4>
+            <p id="toast-msg" class="text-xs text-champagne/70">Nossa concierge entrará em contato em breve.</p>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Audio Toggle & Synthesis (Tone.js Ambient Sound) ---
+        let audioInitialized = false;
+        let synth, reverb;
+
+        function toggleAudio() {
+            const icon = document.getElementById('audio-icon');
+            const text = document.getElementById('audio-text');
+
+            if (!audioInitialized) {
+                Tone.start();
+                reverb = new Tone.Reverb({ decay: 8, wet: 0.6 }).toDestination();
+                synth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "sine" },
+                    envelope: { attack: 2, release: 4 }
+                }).connect(reverb);
+
+                // Play ambient luxury chord (C minor / Gold harmony)
+                synth.triggerAttackRelease(["C3", "G3", "D4", "A#4"], "2n");
+                
+                // Loop gentle background chime
+                setInterval(() => {
+                    if (audioInitialized) {
+                        const notes = ["C4", "D#4", "G4", "A#4", "D5"];
+                        const randomNote = notes[Math.floor(Math.random() * notes.length)];
+                        synth.triggerAttackRelease(randomNote, "4n", undefined, 0.15);
+                    }
+                }, 6000);
+
+                audioInitialized = true;
+                icon.className = "fa-solid fa-volume-high text-gold-400 scale-110";
+                text.textContent = "Som Ativo";
+            } else {
+                audioInitialized = false;
+                if (synth) synth.releaseAll();
+                icon.className = "fa-solid fa-volume-xmark text-gold-400";
+                text.textContent = "Ambiente";
+            }
+        }
+
+        // --- 2. Mobile Menu Toggle ---
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        // --- 3. Checkout Modal Handling ---
+        function openCheckout(item, price) {
+            document.getElementById('modal-item-title').textContent = item;
+            document.getElementById('modal-item-price').textContent = price;
+            document.getElementById('checkout-modal').classList.remove('hidden');
+        }
+
+        function closeCheckout() {
+            document.getElementById('checkout-modal').classList.add('hidden');
+        }
+
+        function handleCheckoutSubmit(e) {
+            e.preventDefault();
+            closeCheckout();
+            const toast = document.getElementById('toast-notification');
+            toast.classList.remove('translate-y-32', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-32', 'opacity-0');
+            }, 4000);
+        }
+
+        // --- 4. Three.js 3D Toothbrush & Background Particle Simulation ---
+        let scene, camera, renderer, toothbrushGroup;
+        let particlesMesh, snowGeo;
+        let targetRotationX = 0, targetRotationY = 0;
+        let mouseX = 0, mouseY = 0;
+        let windowHalfX = window.innerWidth / 2;
+        let windowHalfY = window.innerHeight / 2;
+
+        function init3DScene() {
+            const container = document.getElementById('canvas-3d-target');
+            
+            // Scene & Camera
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 0, 18);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Studio Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const keyLight = new THREE.DirectionalLight(0xf2dc9d, 2.5);
+            keyLight.position.set(10, 20, 15);
+            keyLight.castShadow = true;
+            scene.add(keyLight);
+
+            const fillLight = new THREE.DirectionalLight(0xa8c5df, 1.5);
+            fillLight.position.set(-15, -10, 10);
+            scene.add(fillLight);
+
+            const rimLight = new THREE.DirectionalLight(0xffffff, 2.0);
+            rimLight.position.set(0, 20, -15);
+            scene.add(rimLight);
+
+            // Build High-End Luxury Toothbrush 3D Model
+            toothbrushGroup = new THREE.Group();
+
+            // Materials
+            const titaniumMaterial = new THREE.MeshStandardMaterial({
+                color: 0x1e222b,
+                metalness: 0.9,
+                roughness: 0.2,
+                wireframe: false
+            });
+
+            const goldAccentMaterial = new THREE.MeshStandardMaterial({
+                color: 0xd4af37,
+                metalness: 0.95,
+                roughness: 0.15
+            });
+
+            const bristleMaterial = new THREE.MeshStandardMaterial({
+                color: 0x111113,
+                roughness: 0.5
+            });
+
+            const glassRingMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0xffffff,
+                metalness: 0.1,
+                roughness: 0.1,
+                transmission: 0.6,
+                transparent: true,
+                opacity: 0.8
+            });
+
+            // Handle (Cylinder with taper)
+            const handleGeo = new THREE.CylinderGeometry(0.35, 0.5, 8, 32);
+            const handleMesh = new THREE.Mesh(handleGeo, titaniumMaterial);
+            handleMesh.position.y = -1;
+            toothbrushGroup.add(handleMesh);
+
+            // Gold Ring Accent on Handle
+            const ringGeo = new THREE.CylinderGeometry(0.37, 0.37, 0.4, 32);
+            const ringMesh = new THREE.Mesh(ringGeo, goldAccentMaterial);
+            ringMesh.position.y = 2.5;
+            toothbrushGroup.add(ringMesh);
+
+            // Neck (Tapered cylinder)
+            const neckGeo = new THREE.CylinderGeometry(0.2, 0.35, 3, 32);
+            const neckMesh = new THREE.Mesh(neckGeo, titaniumMaterial);
+            neckMesh.position.y = 4.3;
+            toothbrushGroup.add(neckMesh);
+
+            // Head Base
+            const headGeo = new THREE.BoxGeometry(0.6, 2.2, 0.3);
+            const headMesh = new THREE.Mesh(headGeo, titaniumMaterial);
+            headMesh.position.set(0, 6.0, 0);
+            toothbrushGroup.add(headMesh);
+
+            // Bristles (Cluster of tiny bars)
+            for(let i = -0.8; i <= 0.8; i += 0.25) {
+                for(let j = -0.08; j <= 0.08; j += 0.08) {
+                    const bristleGeo = new THREE.BoxGeometry(0.08, 0.5, 0.04);
+                    const bristle = new THREE.Mesh(bristleGeo, bristleMaterial);
+                    bristle.position.set(j, 6.0 + (i * 0.5), 0.22);
+                    toothbrushGroup.add(bristle);
+                }
+            }
+
+            // Floating Decorative Orbital Ring around Toothbrush
+            const orbitalGeo = new THREE.TorusGeometry(3.2, 0.03, 16, 100);
+            const orbitalMesh = new THREE.Mesh(orbitalGeo, goldAccentMaterial);
+            orbitalMesh.rotation.x = Math.PI / 3;
+            toothbrushGroup.add(orbitalMesh);
+
+            toothbrushGroup.rotation.z = Math.PI / 8;
+            scene.add(toothbrushGroup);
+
+            // Background Snow / Particle System
+            const particleCount = 600;
+            const particleGeometry = new THREE.BufferGeometry();
+            const particlePositions = new Float32Array(particleCount * 3);
+
+            for(let i = 0; i < particleCount * 3; i += 3) {
+                particlePositions[i] = (Math.random() - 0.5) * 40;
+                particlePositions[i+1] = (Math.random() - 0.5) * 40;
+                particlePositions[i+2] = (Math.random() - 0.5) * 30;
+            }
+
+            particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+            const particleMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.08,
+                transparent: true,
+                opacity: 0.6
+            });
+
+            particlesMesh = new THREE.Points(particleGeometry, particleMaterial);
+            scene.add(particlesMesh);
+
+            // Event Listeners for Mouse Interactive Rotation
+            document.addEventListener('mousemove', onDocumentMouseMove);
+            window.addEventListener('resize', onWindowResize);
+
+            animate3D();
+        }
+
+        function onDocumentMouseMove(event) {
+            mouseX = (event.clientX - windowHalfX) / windowHalfX;
+            mouseY = (event.clientY - windowHalfY) / windowHalfY;
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-3d-target');
+            if(!container) return;
+            windowHalfX = container.clientWidth / 2;
+            windowHalfY = container.clientHeight / 2;
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        let clock = new THREE.Clock();
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            const elapsedTime = clock.getElapsedTime();
+
+            // Rotate Toothbrush Smoothly with Mouse Influence & Floating
+            if(toothbrushGroup) {
+                targetRotationY = mouseX * 0.5 + elapsedTime * 0.2;
+                targetRotationX = mouseY * 0.3 + Math.sin(elapsedTime * 0.8) * 0.1;
+                
+                toothbrushGroup.rotation.y += (targetRotationY - toothbrushGroup.rotation.y) * 0.05;
+                toothbrushGroup.rotation.x += (targetRotationX - toothbrushGroup.rotation.x) * 0.05;
+                toothbrushGroup.position.y = Math.sin(elapsedTime * 1.5) * 0.2;
+            }
+
+            // Animate Snow / Particles downward
+            if(particlesMesh) {
+                const positions = particlesMesh.geometry.attributes.position.array;
+                for(let i = 1; i < positions.length; i += 3) {
+                    positions[i] -= 0.03; // fall speed
+                    positions[i-1] += Math.sin(elapsedTime + i) * 0.01; // subtle drift
+                    if(positions[i] < -20) positions[i] = 20;
+                }
+                particlesMesh.geometry.attributes.position.needsUpdate = true;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- 5. 3D Geometric Page Transitions ---
+        function switchPage(pageId) {
+            // Highlight Nav
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.classList.remove('text-gold-300', 'border-gold-400');
+                link.classList.add('text-champagne/70', 'border-transparent');
+            });
+            const activeNav = document.getElementById(`nav-${pageId}`);
+            if(activeNav) {
+                activeNav.classList.remove('text-champagne/70', 'border-transparent');
+                activeNav.classList.add('text-gold-300', 'border-gold-400');
+            }
+
+            // Trigger 3D Geometric Morph Transition Canvas
+            triggerGeometricTransition(() => {
+                // Hide all pages
+                const pages = document.querySelectorAll('.page-content');
+                pages.forEach(p => p.classList.remove('active'));
+
+                // Show target page
+                const targetPage = document.getElementById(`page-${pageId}`);
+                if(targetPage) {
+                    targetPage.classList.add('active');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            });
+        }
+
+        function triggerGeometricTransition(callback) {
+            const canvas = document.getElementById('transition-canvas');
+            canvas.style.opacity = '1';
+            
+            const transScene = new THREE.Scene();
+            const transCamera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            transCamera.position.z = 10;
+            const transRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+            transRenderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Rotating geometric crystal prism
+            const geometry = new THREE.IcosahedronGeometry(3, 0);
+            const material = new THREE.MeshStandardMaterial({
+                color: 0xd4af37,
+                metalness: 0.9,
+                roughness: 0.1,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.8
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            transScene.add(mesh);
+
+            const light = new THREE.DirectionalLight(0xffffff, 2);
+            light.position.set(5, 5, 5);
+            transScene.add(light);
+            transScene.add(new THREE.AmbientLight(0xffffff, 1));
+
+            let progress = 0;
+            function transitionAnim() {
+                progress += 0.05;
+                mesh.rotation.x += 0.1;
+                mesh.rotation.y += 0.15;
+                mesh.scale.setScalar(1 + progress * 0.8);
+
+                transRenderer.render(transScene, transCamera);
+
+                if (progress < 1.2) {
+                    requestAnimationFrame(transitionAnim);
+                } else {
+                    callback();
+                    setTimeout(() => {
+                        canvas.style.opacity = '0';
+                        transRenderer.dispose();
+                    }, 200);
+                }
+            }
+            transitionAnim();
+        }
+
+        // Initialize on Load
+        window.onload = function() {
+            init3DScene();
+        }
+    </script>
+</body>
+</html>
